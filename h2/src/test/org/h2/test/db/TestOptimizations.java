@@ -42,6 +42,7 @@ public class TestOptimizations extends TestDb {
     @Override
     public void test() throws Exception {
         deleteDb("optimizations");
+        testReuseResultsNestedView();
         testConditionsStackOverflow();
         testIdentityIndexUsage();
         testFastRowIdCondition();
@@ -90,6 +91,34 @@ public class TestOptimizations extends TestDb {
         testConvertOrToIn();
         testConditionAndOrDistributiveLaw();
         deleteDb("optimizations");
+    }
+
+    private void testReuseResultsNestedView() throws Exception {
+        Connection conn = getConnection("optimizations");
+        Statement stat = conn.createStatement();
+        stat.execute("set OPTIMIZE_REUSE_RESULTS 1");
+        stat.execute("create table test(id int)");
+        stat.execute("insert into test values(1)");
+        stat.execute("create view inner_view as select * from test");
+        stat.execute("create view outer_view as select * from inner_view");
+        conn.commit();
+        conn.setAutoCommit(false);
+        try {
+            ResultSet rs = stat.executeQuery("select count(*) from outer_view");
+            rs.next();
+            assertEquals(1, rs.getInt(1));
+            stat.execute("insert into test values(2)");
+            rs = stat.executeQuery("select count(*) from outer_view");
+            rs.next();
+            assertEquals(2, rs.getInt(1));
+        } finally {
+            conn.rollback();
+            conn.setAutoCommit(true);
+        }
+        stat.execute("drop view outer_view");
+        stat.execute("drop view inner_view");
+        stat.execute("drop table test");
+        conn.close();
     }
 
     private void testIdentityIndexUsage() throws Exception {

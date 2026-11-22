@@ -296,9 +296,7 @@ public abstract class QueryExpressionTable extends Table {
         super.addDependencies(dependencies);
         if (tables != null) {
             for (Table t : tables) {
-                if (TableType.VIEW != t.getTableType()) {
-                    t.addDependencies(dependencies);
-                }
+                t.addDependencies(dependencies);
             }
         }
     }
